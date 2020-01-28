@@ -1,7 +1,7 @@
 ﻿Imports System
-Imports System.Threading
-Imports System.IO.Ports
 Imports System.ComponentModel
+Imports System.IO.Ports
+Imports System.Threading
 Imports System.Windows.Forms
 
 Public Class Form1
@@ -12,11 +12,11 @@ Public Class Form1
     Dim version As String = ""
     Dim messagenum As Integer = 1
 
-    Dim WithEvents PollingTimer As New System.Windows.Forms.Timer With {.Interval = polltiming}
+    Dim WithEvents PollingTimer As New Windows.Forms.Timer With {.Interval = polltiming}
 
     Private Property SerialWrapper As SerialWrapper
 
-    Private Sub Form1_Load(sender As System.Object, e As System.EventArgs) Handles MyBase.Load
+    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         StopPolling.Enabled = False
         Off.Enabled = False
         H2Adjust.Enabled = False
@@ -34,21 +34,22 @@ Public Class Form1
         FlowChart.Series("Hydrogen").Points.AddXY(time, 0)
         FlowChart.ChartAreas("ChartArea1").AxisX.LabelStyle.Format = "hh:mm:ss"
 
-        If IO.Ports.SerialPort.GetPortNames.Count = 0 Then
-            MessageBox.Show("Communication Error - Program Is Shutting Down!" & vbCr & vbCr & "Please check your power and communication connections and restart the program", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        If SerialPort.GetPortNames.Count = 0 Then
+            ShowErrorMessage("We could not find any available serial ports.")
             Application.Exit()
-        ElseIf IO.Ports.SerialPort.GetPortNames.Count = 1 Then
-            SerialWrapper = New SerialWrapper(IO.Ports.SerialPort.GetPortNames(0), 38400, TimeSpan.FromMilliseconds(250))
+        ElseIf SerialPort.GetPortNames.Count = 1 Then
+            SerialWrapper = New SerialWrapper(SerialPort.GetPortNames(0), 38400, TimeSpan.FromMilliseconds(250))
         Else
             Try
                 Dim frmCOM As New COM
                 frmCOM.ShowDialog()
                 SerialWrapper = New SerialWrapper(frmCOM.SerialPort1.PortName, 38400, TimeSpan.FromMilliseconds(250))
-            Catch
-                MessageBox.Show("Communication Error - Program Is Shutting Down!" & vbCr & vbCr & "Please check your power and communication connections and restart the program", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Catch exception As Exception
+                ShowErrorMessage(exception.Message)
                 Application.Exit()
             End Try
         End If
+
         Try
             If Not SerialWrapper Is Nothing Then
                 'enable buttons and polling
@@ -68,7 +69,8 @@ Public Class Form1
                 Dim Elements As String() = System.Text.RegularExpressions.Regex.Split(returnStr, "\s+")
                 If Elements.Length > 5 Then
                     version = "standard"
-                Else version = "MEMS"
+                Else
+                    version = "MEMS"
                 End If
 
                 'Change default mode to nonvolatile setpoints if applicable
@@ -93,13 +95,24 @@ Public Class Form1
             Else
                 Application.Exit()
             End If
-        Catch
-            MessageBox.Show("Communication Error - Program Is Shutting Down!" & vbCr & vbCr & "Please check your power and communication connections and restart the program", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Catch exception As Exception
+            ShowErrorMessage(exception.Message)
             Application.Exit()
         End Try
+
         PollingTimer.Start()
         StopPolling.Enabled = True
         StopPolling.Checked = False
+
+    End Sub
+
+    Private Sub ShowErrorMessage(message)
+        MessageBox.Show(
+            $"{message}{vbCr}{vbCr}Please check your power and communication connections and restart the program.",
+            "Error",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error
+        )
     End Sub
 
     Private Function ReadFlow(InputString) As Double()
